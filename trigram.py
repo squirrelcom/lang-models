@@ -71,11 +71,12 @@ class TrigramAddOneSmooth(LanguageModel):
         return (trigram_count + 1)/(bigram_count + len(self.word_count))
 
     def _get_trigram(self, sentence, index):
-        #In a trigram model, we want the p(word | context), where the context is the
-        #previous two words. So if our index is 0, the best we could do is (<S>, word)
-        #but that's not enough context for a trigram model
+        #Wikipedia is using two start symbols for the context of the first word.
+        #That's good enough for me
         if index == 0:
-            raise ValueError('Index must be >= 1')
+            prev_prev_word = LanguageModel.START
+            prev_word = LanguageModel.START
+            next_word = sentence[index]
         elif index == 1:
             prev_prev_word = LanguageModel.START
             prev_word = sentence[index-1]
