@@ -79,8 +79,14 @@ class TrigramAddOneSmooth(LanguageModel):
             next_word = sentence[index]
         elif index == 1:
             prev_prev_word = LanguageModel.START
-            prev_word = sentence[index-1]
-            next_word = sentence[index]
+            #In an ideal world, a client of this class wouldn't ask for p(word) at
+            #a non-existent position in a sentence. But we don't live in that world
+            if len(sentence) == 1:
+                prev_word = LanguageModel.START
+                next_word = sentence[index-1]
+            else:
+                prev_word = sentence[index-1]
+                next_word = sentence[index]
         elif index == len(sentence):
             prev_prev_word = sentence[index-2]
             prev_word = sentence[index-1]
