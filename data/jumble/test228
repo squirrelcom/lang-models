@@ -1,0 +1,10 @@
+hands ; act Strong ;
+hands ; act ; Strong
+hands act ; Strong ;
+Strong ; act hands ;
+Strong ; act hands ;
+hands Strong act ; ;
+Strong hands act ; ;
+Strong ; ; act hands
+Strong hands ; ; act
+; ; Strong act hands

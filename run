@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# You may find this shell script helpful.
+# If you have both Python 2 and 3 installed, and you want to use Python 3, feel
+# free to change "python" to "python3" below.
+
+python tester.py --model bigram.BigramAddOneSmooth --data data --train train-data.txt --test  test-data.txt --showguesses False --jumble True --generate True --check True

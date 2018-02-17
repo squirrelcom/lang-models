@@ -1,0 +1,10 @@
+; two awards purchase Ranger ; Fund
+purchase two ; ; awards Fund Ranger
+two purchase Fund ; ; awards Ranger
+purchase Ranger ; Fund ; awards two
+Fund two ; ; Ranger purchase awards
+Ranger Fund awards ; ; purchase two
+two Ranger Fund purchase awards ; ;
+Ranger Fund two ; ; purchase awards
+Ranger Fund ; two awards ; purchase
+two ; purchase Fund Ranger awards ;

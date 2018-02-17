@@ -1,0 +1,10 @@
+jar Remove . from mold
+mold Remove from . jar
+from jar . Remove mold
+mold Remove from . jar
+mold jar Remove . from
+Remove jar mold . from
+Remove jar from mold .
+mold from . jar Remove
+Remove jar . mold from
+from mold . Remove jar

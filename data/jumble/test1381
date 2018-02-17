@@ -1,0 +1,10 @@
+glared . Quint
+glared . Quint
+glared Quint .
+Quint glared .
+. Quint glared
+. glared Quint
+Quint glared .
+Quint . glared
+glared . Quint
+glared . Quint
