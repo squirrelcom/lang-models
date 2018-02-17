@@ -58,6 +58,7 @@ class TrigramAddOneSmooth(LanguageModel):
         return bigrams
 
     def getWordProbability(self, sentence, index):
+        print(sentence)
         trigram = self._get_trigram(sentence, index)
         bigram = (trigram[0], trigram[1])
         if trigram in self.trigram_count:
@@ -132,12 +133,24 @@ class TrigramAddOneSmooth(LanguageModel):
             buckets.append(current_bucket)
         return buckets, (occurrences + len(self.word_count.keys()) - 1)
 
-# if __name__ == '__main__':
-#     t = TrigramAddOneSmooth()
-#     trainfile = 'data/train-data.txt'
-#     with open(trainfile, 'r') as f:
-#         trainSentences = [line.split() for line in f.readlines()]
-#     t.train(trainSentences)
+if __name__ == '__main__':
+    t = TrigramAddOneSmooth()
+    trainfile = 'data/train-data.txt'
+    with open(trainfile, 'r') as f:
+        trainSentences = [line.split() for line in f.readlines()]
+    t.train(trainSentences)
+    contexts = [[""], "united".split(), "to the".split(), "the quick brown".split(), "lalok nok crrok".split()]
+
+    # for i in range(10):
+    #     randomSentence = t.generateSentence()
+    #     contexts.append(randomSentence[: int(random.random() * len(randomSentence))])
+
+    for context in contexts:
+        modelsum = t.checkProbability(context)
+        if abs(1.0-modelsum) > 1e-6:
+            print("\nWARNING: probability distribution of model does not sum up to one. Sum:" + str(modelsum))
+        else:
+            print("GOOD!")
 #     words = defaultdict(int)
 #     for i in range(500):
 #         word = t.generateWord(LanguageModel.START, "I")
