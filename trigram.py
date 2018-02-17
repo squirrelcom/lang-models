@@ -21,7 +21,11 @@ class TrigramAddOneSmooth(LanguageModel):
 
         # Our cases are (UNK, W, W), (W, UNK, W), (W, W, UNK), (UNK, UNK, W)
         # (UNK, W, UNK), (W, UNK, UNK), (UNK, UNK, UNK)
-        self.trigram_count[LanguageModel.UNK] += 7
+        self.trigram_count[LanguageModel.UNK] += 1
+        self.bigram_count[LanguageModel.UNK] += 1
+        print(len(self.word_count))
+        print(len(self.bigram_count))
+        print(len(self.trigram_count))
 
     def _get_trigrams(self, trainingSentences):
         #todo: figure out if I care about the total number of words
@@ -31,10 +35,18 @@ class TrigramAddOneSmooth(LanguageModel):
             self.total_words += len(sent)
             for i in range(len(sent)):
                 self.word_count[sent[i]] += 1
-                if len(sent) < 2:
-                    # If it's good enough for the nltk, it's good enough for me
-                    continue
-                if i == 0:
+                if len(sent) == 1:
+                    # To keep consistent with our strategy in _get_trigram
+                    trigrams.append((LanguageModel.START, LanguageModel.START, sent[0]))
+                    trigrams.append((sent[0], LanguageModel.STOP, LanguageModel.STOP))
+                    self.word_count[LanguageModel.START] += 2
+                    self.word_count[LanguageModel.STOP] += 2
+                elif len(sent) == 2:
+                    trigrams.append((LanguageModel.START, sent[0], sent[1]))
+                    trigrams.append((sent[0], sent[1], LanguageModel.STOP))
+                    self.word_count[LanguageModel.START] += 1
+                    self.word_count[LanguageModel.STOP] += 1
+                elif i == 0:
                     trigrams.append((LanguageModel.START, sent[i], sent[i+1]))
                     self.word_count[LanguageModel.START] += 1
                 elif i == len(sent) - 1:
@@ -58,7 +70,6 @@ class TrigramAddOneSmooth(LanguageModel):
         return bigrams
 
     def getWordProbability(self, sentence, index):
-        print(sentence)
         trigram = self._get_trigram(sentence, index)
         bigram = (trigram[0], trigram[1])
         if trigram in self.trigram_count:
@@ -69,7 +80,8 @@ class TrigramAddOneSmooth(LanguageModel):
             bigram_count = self.bigram_count[bigram]
         else:
             bigram_count = 0
-        return (trigram_count + 1)/(bigram_count + len(self.word_count))
+        prob = float((trigram_count + 1))/(bigram_count + len(self.word_count))
+        return float((trigram_count + 1))/(bigram_count + len(self.word_count))
 
     def _get_trigram(self, sentence, index):
         #Wikipedia is using two start symbols for the context of the first word.
@@ -139,13 +151,14 @@ if __name__ == '__main__':
     with open(trainfile, 'r') as f:
         trainSentences = [line.split() for line in f.readlines()]
     t.train(trainSentences)
-    contexts = [[""], "united".split(), "to the".split(), "the quick brown".split(), "lalok nok crrok".split()]
+    contexts = [[""], "united".split(), "to the".split(), "the quick brown".split(),"lalok nok crrok".split()]
 
     # for i in range(10):
     #     randomSentence = t.generateSentence()
     #     contexts.append(randomSentence[: int(random.random() * len(randomSentence))])
 
-    for context in contexts:
+    for context in [['to', 'the']]:
+        print(context)
         modelsum = t.checkProbability(context)
         if abs(1.0-modelsum) > 1e-6:
             print("\nWARNING: probability distribution of model does not sum up to one. Sum:" + str(modelsum))
