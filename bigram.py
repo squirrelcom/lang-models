@@ -20,6 +20,7 @@ class BigramAddOneSmooth(LanguageModel):
         # 3 cases: (word, UNK), (UNK, word), (UNK, UNK)
         self.probCounter[LanguageModel.UNK] += 1
         self.bigram_count[LanguageModel.UNK] += 1
+        print(self.bigram_count[('to', 'the')])
 
     #So it turns out this method is implementing the add-1 smoothing already
     #But I may still want to modify getWordProbabilityBigram
@@ -87,7 +88,10 @@ class BigramAddOneSmooth(LanguageModel):
     def generateSentence(self):
         sentence = []
         previous = LanguageModel.START
-        for i in range(20): #this is small so as not to throw a memory error
+        # the range is small so as not to throw a memory error-
+        # but that might be machine-dependent. If you have a better machine,
+        # you may increase the range here
+        for i in range(20):
             word = self.generate_word(previous)
             sentence.append(word)
             previous = word
@@ -102,12 +106,12 @@ class BigramAddOneSmooth(LanguageModel):
         index = bisect.bisect_left(accumulator, random.randint(1, num_with_previous))
         return list(self.word_count.keys())[index]
 
-# if __name__ == '__main__':
-#     trainfile = 'data/train-data.txt'
-#     with open(trainfile, 'r') as f:
-#         trainSentences = [line.split() for line in f.readlines()]
-#     b = BigramAddOneSmooth()
-#     b.train(trainSentences)
+if __name__ == '__main__':
+    trainfile = 'data/train-data.txt'
+    with open(trainfile, 'r') as f:
+        trainSentences = [line.split() for line in f.readlines()]
+    b = BigramAddOneSmooth()
+    b.train(trainSentences)
 
     # print(b.generateSentence())
 

@@ -58,7 +58,6 @@ class TrigramAddOneSmooth(LanguageModel):
         return bigrams
 
     def getWordProbability(self, sentence, index):
-        print(sentence)
         trigram = self._get_trigram(sentence, index)
         bigram = (trigram[0], trigram[1])
         if trigram in self.trigram_count:
