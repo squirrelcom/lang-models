@@ -3,9 +3,8 @@ from collections import defaultdict
 import bisect
 import random
 
-class BigramAddOneSmooth(LanguageModel):
+class Bigram(LanguageModel):
     def __init__(self):
-        self.probCounter = defaultdict(float)
         self.bigram_count = defaultdict(int)
         self.word_count = defaultdict(int)  # for use in MLE
         self.total_bigrams = 0
@@ -13,29 +12,10 @@ class BigramAddOneSmooth(LanguageModel):
     def train(self, trainingSentences):
         bigrams = self._get_bigrams(trainingSentences)
         for bigram in bigrams:
-            self.probCounter[bigram] += 1
             self.total_bigrams += 1
             self.bigram_count[bigram] += 1
 
-        # 3 cases: (word, UNK), (UNK, word), (UNK, UNK)
-        self.probCounter[LanguageModel.UNK] += 1
         self.bigram_count[LanguageModel.UNK] += 1
-        print(self.bigram_count[('to', 'the')])
-
-    #So it turns out this method is implementing the add-1 smoothing already
-    #But I may still want to modify getWordProbabilityBigram
-    def _create_accumulator(self, previous):
-        current_bucket = -1
-        bucket_list = []
-        num_with_previous = 0
-        for word2 in self.word_count.keys():
-            if self.bigram_count[(previous, word2)] == 0:
-                current_bucket += 1
-            else:
-                current_bucket += self.bigram_count[(previous, word2)] + 1
-                num_with_previous += self.bigram_count[(previous, word2)]
-            bucket_list.append(current_bucket)
-        return bucket_list, (num_with_previous + len(self.word_count.keys()) - 1)
 
     def _get_bigrams(self, trainingSentences):
         self.total_words = 0
@@ -55,25 +35,14 @@ class BigramAddOneSmooth(LanguageModel):
         self.word_count[LanguageModel.UNK] = 3  # same three cases as in self.train
         return bigrams
 
-    def getVocabulary(self, context):
-        return self.word_count.keys()
-
-    # Maximum likelihood estimate-
-    # P(word|previous) = count(previous, word)/count(previous)
+    #Basic unsmoothed MLE. May return zero
     def getWordProbability(self, sentence, index):
-        bigram = self._get_bigram(sentence, index)
-        if bigram in self.bigram_count:
-            bigram_count = self.bigram_count[bigram]
-        else:
-            bigram_count = 0
-        if bigram[0] in self.word_count:
-            count_previous = self.word_count[bigram[0]]
-        else:
-            count_previous = 0
-        prob = (bigram_count + 1)/(count_previous + len(self.word_count))
-        return prob
+        bigram = self.get_bigram(sentence, index)
+        bigram_count = self.bigram_count[bigram]
+        count_previous = self.word_count[bigram[0]]
+        return count_previous if count_previous == 0 else bigram_count/count_previous
 
-    def _get_bigram(self, sentence, index):
+    def get_bigram(self, sentence, index):
         if index == 0:
             previous_word = LanguageModel.START
             next_word = sentence[index]
@@ -99,27 +68,67 @@ class BigramAddOneSmooth(LanguageModel):
                 break
         return sentence
 
-    #Apparently this method is working as expected, it's just that with so much
-    #data and a relatively simple model, you get poor results
     def generate_word(self, previous):
-        accumulator, num_with_previous = self._create_accumulator(previous)
+        accumulator, num_with_previous = self.create_accumulator(previous)
         index = bisect.bisect_left(accumulator, random.randint(1, num_with_previous))
         return list(self.word_count.keys())[index]
 
-if __name__ == '__main__':
-    trainfile = 'data/train-data.txt'
-    with open(trainfile, 'r') as f:
-        trainSentences = [line.split() for line in f.readlines()]
-    b = BigramAddOneSmooth()
-    b.train(trainSentences)
+    def create_accumulator(self, previous, smooth_value=0, bucket_start=0):
+        current_bucket = bucket_start
+        bucket_list = []
+        num_with_previous = 0
+        for word2 in self.word_count.keys():
+            if self.bigram_count[(previous, word2)] == 0:
+                current_bucket += smooth_value
+            else:
+                current_bucket += self.bigram_count[(previous, word2)] + smooth_value
+                num_with_previous += self.bigram_count[(previous, word2)]
+            bucket_list.append(current_bucket)
+        return bucket_list, num_with_previous
 
-    # print(b.generateSentence())
+class BigramAddOneSmooth(Bigram):
+    def __init__(self):
+        super().__init__()
 
-    # words = defaultdict(int)
-    # for i in range(500):
-    #     word = b.generate_word(LanguageModel.START)
-    #     words[word] += 1
-    # print(sorted(words.items(), key=lambda x : x[1], reverse=True))
-    # print(b.getWordProbability(["I"], 0))
-    # print(b.getWordProbabilityBigram("The other".split(), 1))
-    # print(b.generateSentence())
+    def train(self, trainingSentences):
+       super().train(trainingSentences)
+
+
+    def getVocabulary(self, context):
+        return self.word_count.keys()
+
+    # Maximum likelihood estimate with add-1 smoothing
+    # P(word|previous) = count(previous, word)+1/count(previous) + |V|
+    def getWordProbability(self, sentence, index):
+        bigram = super().get_bigram(sentence, index)
+        if bigram in self.bigram_count:
+            bigram_count = self.bigram_count[bigram]
+        else:
+            bigram_count = 0
+        if bigram[0] in self.word_count:
+            count_previous = self.word_count[bigram[0]]
+        else:
+            count_previous = 0
+        return (bigram_count + 1)/(count_previous + len(self.word_count))
+
+
+    def generateSentence(self):
+        sentence = []
+        previous = LanguageModel.START
+        # the range is small so as not to throw a memory error-
+        # but that might be machine-dependent. If you have a better machine,
+        # you may increase the range here
+        for i in range(20):
+            word = self.generate_word(previous)
+            sentence.append(word)
+            previous = word
+            if word == LanguageModel.STOP:
+                break
+        return sentence
+
+
+    def generate_word(self, previous):
+        accumulator, num_with_previous = super().create_accumulator(previous, smooth_value=1, bucket_start=-1)
+        num_with_previous +=  len(self.word_count.keys()) - 1
+        index = bisect.bisect_left(accumulator, random.randint(1, num_with_previous))
+        return list(self.word_count.keys())[index]

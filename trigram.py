@@ -3,7 +3,11 @@ from collections import defaultdict
 import random
 import bisect
 
-class TrigramAddOneSmooth(LanguageModel):
+'''
+Implements a basic trigram language model with no smoothing. Not directly useful,
+used for interpolation mostly
+'''
+class Trigram(LanguageModel):
     def __init__(self):
         self.trigram_count = defaultdict(int)
         self.word_count = defaultdict(int)
@@ -19,16 +23,10 @@ class TrigramAddOneSmooth(LanguageModel):
         for bigram in bigrams:
             self.bigram_count[bigram] += 1
 
-        # Our cases are (UNK, W, W), (W, UNK, W), (W, W, UNK), (UNK, UNK, W)
-        # (UNK, W, UNK), (W, UNK, UNK), (UNK, UNK, UNK)
         self.trigram_count[LanguageModel.UNK] += 1
         self.bigram_count[LanguageModel.UNK] += 1
-        print(len(self.word_count))
-        print(len(self.bigram_count))
-        print(len(self.trigram_count))
 
     def _get_trigrams(self, trainingSentences):
-        #todo: figure out if I care about the total number of words
         self.total_words = 0
         trigrams = []
         for sent in trainingSentences:
@@ -69,21 +67,16 @@ class TrigramAddOneSmooth(LanguageModel):
                     bigrams.append((sent[i], LanguageModel.STOP))
         return bigrams
 
+    #Unsmoothed MLE. May return 0
     def getWordProbability(self, sentence, index):
-        trigram = self._get_trigram(sentence, index)
+        trigram = self.get_trigram(sentence, index)
         bigram = (trigram[0], trigram[1])
-        if trigram in self.trigram_count:
-            trigram_count = self.trigram_count[trigram]
-        else:
-            trigram_count = 0
-        if bigram in self.bigram_count:
-            bigram_count = self.bigram_count[bigram]
-        else:
-            bigram_count = 0
-        prob = float((trigram_count + 1))/(bigram_count + len(self.word_count))
-        return float((trigram_count + 1))/(bigram_count + len(self.word_count))
+        trigram_count = self.trigram_count[trigram]
+        bigram_count = self.bigram_count[bigram]
+        return bigram_count if bigram_count == 0 else trigram_count/bigram_count
 
-    def _get_trigram(self, sentence, index):
+
+    def get_trigram(self, sentence, index):
         #Wikipedia is using two start symbols for the context of the first word.
         #That's good enough for me
         if index == 0:
@@ -110,6 +103,61 @@ class TrigramAddOneSmooth(LanguageModel):
             next_word = sentence[index]
         return (prev_prev_word, prev_word, next_word)
 
+    def generateSentence(self):
+        sentence = []
+        prev_previous = LanguageModel.START
+        # Maybe not the best choice, but we need to choose a second context
+        previous = random.choice(list(self.word_count.keys()))
+        for i in range(20):
+            word = self.generateWord(prev_previous, previous)
+            if word == LanguageModel.STOP:
+                break
+            prev_previous = previous
+            previous = word
+            sentence.append(word)
+        return sentence
+
+    def generateWord(self, prev_previous, previous):
+        accumulator, num_with_previous = self.create_accumulator(prev_previous, previous)
+        index = bisect.bisect_left(accumulator, random.randint(1, num_with_previous))
+        return list(self.word_count.keys())[index]
+
+    def create_accumulator(self, prev_previous, previous, smooth_value=0, start=0):
+        buckets = []
+        current_bucket = start
+        occurrences = 0
+        for word in self.word_count.keys():
+            if self.trigram_count[(prev_previous, previous, word)] == 0:
+                current_bucket += smooth_value
+            else:
+                current_bucket += self.trigram_count[(prev_previous, previous, word)]
+                occurrences += self.trigram_count[(prev_previous, previous, word)]
+            buckets.append(current_bucket)
+        return buckets, occurrences
+
+    def getVocabulary(self, context):
+        return self.word_count.keys()
+
+class TrigramAddOneSmooth(Trigram):
+    def __init__(self):
+        super().__init__()
+
+    def train(self, trainingSentences):
+       super().train(trainingSentences)
+
+    def getWordProbability(self, sentence, index):
+        trigram = super().get_trigram(sentence, index)
+        bigram = (trigram[0], trigram[1])
+        if trigram in self.trigram_count:
+            trigram_count = self.trigram_count[trigram]
+        else:
+            trigram_count = 0
+        if bigram in self.bigram_count:
+            bigram_count = self.bigram_count[bigram]
+        else:
+            bigram_count = 0
+        return float((trigram_count + 1))/(bigram_count + len(self.word_count))
+
     def getVocabulary(self, context):
         return self.word_count.keys()
 
@@ -128,45 +176,8 @@ class TrigramAddOneSmooth(LanguageModel):
         return sentence
 
     def generateWord(self, prev_previous, previous):
-        accumulator, num_with_context = self._create_accumulator(prev_previous, previous)
+        accumulator, num_with_context = super().create_accumulator(
+            prev_previous, previous, smooth_value=1, start=-1)
+        num_with_context += len(self.word_count.keys()) - 1
         index = bisect.bisect_left(accumulator, random.randint(1, num_with_context))
         return list(self.word_count.keys())[index]
-
-    def _create_accumulator(self, prev_previous, previous):
-        buckets = []
-        current_bucket = -1
-        occurrences = 0
-        for word in self.word_count.keys():
-            if self.trigram_count[(prev_previous, previous, word)] == 0:
-                current_bucket += 1
-            else:
-                current_bucket += self.trigram_count[(prev_previous, previous, word)] + 1
-                occurrences += self.trigram_count[(prev_previous, previous, word)]
-            buckets.append(current_bucket)
-        return buckets, (occurrences + len(self.word_count.keys()) - 1)
-
-if __name__ == '__main__':
-    t = TrigramAddOneSmooth()
-    trainfile = 'data/train-data.txt'
-    with open(trainfile, 'r') as f:
-        trainSentences = [line.split() for line in f.readlines()]
-    t.train(trainSentences)
-    contexts = [[""], "united".split(), "to the".split(), "the quick brown".split(),"lalok nok crrok".split()]
-
-    # for i in range(10):
-    #     randomSentence = t.generateSentence()
-    #     contexts.append(randomSentence[: int(random.random() * len(randomSentence))])
-
-    for context in [['to', 'the']]:
-        print(context)
-        modelsum = t.checkProbability(context)
-        if abs(1.0-modelsum) > 1e-6:
-            print("\nWARNING: probability distribution of model does not sum up to one. Sum:" + str(modelsum))
-        else:
-            print("GOOD!")
-#     words = defaultdict(int)
-#     for i in range(500):
-#         word = t.generateWord(LanguageModel.START, "I")
-#         words[word] += 1
-#     print(sorted(words.items(), key=lambda x : x[1], reverse=True))
-#     # print(t.generateSentence())
